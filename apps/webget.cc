@@ -17,6 +17,22 @@ void get_URL(const string &host, const string &path) {
     // (not just one call to read() -- everything) until you reach
     // the "eof" (end of file).
 
+    // It’s important to note that shutdown() doesn’t actually close the file descriptor—it just changes its usability.
+    // To free a socket descriptor, you need to use close().
+    // ref: https://beej.us/guide/bgnet/html/#close-and-shutdownget-outta-my-face
+    TCPSocket sock;
+    sock.connect(Address(host, "http"));
+    sock.write("GET " + path + " HTTP/1.1\r\n");
+    sock.write("HOST: " + host + "\r\n");
+    sock.write("Connection: close\r\n");
+    sock.write("\r\n");
+    sock.shutdown(SHUT_WR);
+
+    while (!sock.eof()) {
+        cout << sock.read();
+    }
+    sock.close();
+
     cerr << "Function called: get_URL(" << host << ", " << path << ").\n";
     cerr << "Warning: get_URL() has not been implemented yet.\n";
 }
