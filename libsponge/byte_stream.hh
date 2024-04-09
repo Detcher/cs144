@@ -14,8 +14,8 @@ class ByteStream {
     // Your code here -- add private members as necessary.
     std::vector<char> _buf;
     size_t _capacity;
-    int head, tail;
-    size_t wr_cnt, rd_cnt;
+    int _head, _tail;
+    size_t _wr_cnt, _rd_cnt;
     bool _input_end = false;
 
     // Hint: This doesn't need to be a sophisticated data structure at
