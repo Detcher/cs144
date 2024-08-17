@@ -22,6 +22,8 @@ ParseResult TCPSegment::parse(const Buffer buffer, const uint32_t datagram_layer
     return p.get_error();
 }
 
+// syn and fin flag will account for an additional seqno,
+// just look at the func-signature, it's for 'seq(uence_space)'.
 size_t TCPSegment::length_in_sequence_space() const {
     return payload().str().size() + (header().syn ? 1 : 0) + (header().fin ? 1 : 0);
 }
