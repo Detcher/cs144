@@ -9,6 +9,31 @@
 #include <functional>
 #include <queue>
 
+//! \brief Timer
+class Timer {
+  private:
+    unsigned int _alive_period{0};
+    unsigned int _rto{0};
+    bool _is_running{false};
+
+  public:
+    Timer() = default;
+    Timer(uint16_t timeout) : _rto(timeout) {}
+    void stop() { _is_running = false; }
+    void restart() {
+        _is_running = true;
+        _alive_period = 0;
+    }
+    void tick(size_t elapsed) {
+        if (_is_running)
+            _alive_period += elapsed;
+    }
+    bool is_running() const { return _is_running; }
+    bool is_timeout() const { return _is_running && _alive_period >= _rto; }
+    void set_timeout(unsigned int timeout) { _rto = timeout; }
+    unsigned int get_timeout() const { return _rto; };
+};
+
 //! \brief The "sender" part of a TCP implementation.
 
 //! Accepts a ByteStream, divides it up into segments and sends the
@@ -31,6 +56,18 @@ class TCPSender {
 
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
+
+    std::queue<std::pair<uint64_t, TCPSegment>> _outstanding_seg{};
+
+    uint64_t _bytes_in_flight{0};
+
+    size_t _consecutive_retrans{0};
+
+    Timer _timer;
+
+    uint16_t _window_size{1};
+
+    bool _set_syn{false}, _set_fin{false};
 
   public:
     //! Initialize a TCPSender
