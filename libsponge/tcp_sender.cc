@@ -43,11 +43,14 @@ void TCPSender::fill_window() {
         auto payload = _stream.read(payload_size);
         seg.payload() = Buffer(std::move(payload));
         // set fin if it should
+        // Must stay behind '_stream.read()' because it's possible being in EOF after reading and then setting FIN,
+        // if it stays before reading stream, it may miss some FIN setting (See 'Piggyback FIN...' testcase).
+        // Also, must leave some space in the window for FIN flag, avoiding being trimmed; if no space yet, just skip it.
         if (_stream.eof() && !_set_fin && _bytes_in_flight + seg.length_in_sequence_space() < window_size) {
             seg.header().fin = true;
             _set_fin = true;
         }
-        // ignore empty segment, or would trap into a infinite loop...
+        // Ignore empty segment, or would trap into a infinite loop...
         if ((length = seg.length_in_sequence_space()) == 0)
             break;
         // and now free to go
@@ -74,12 +77,11 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     if (absolute_ackno > next_seqno_absolute()) {
         return;
     }
-    int is_success = 0;
-    // while (_outstanding_seg.front().first < absolute_ackno) {
+    bool is_success = false;
     while (!_outstanding_seg.empty()) {
         auto &[absolute_seqno, seg] = _outstanding_seg.front();
         if (absolute_seqno + seg.length_in_sequence_space() - 1 < absolute_ackno) {
-            is_success = 1;
+            is_success = true;
             _bytes_in_flight -= seg.length_in_sequence_space();
             _outstanding_seg.pop();
         } else {
@@ -93,8 +95,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _consecutive_retrans = 0;
     }
     // if all has been acknowledged, stop the timer
-    // if (_outstanding_seg.empty()) {
-    if (_bytes_in_flight == 0) {
+    if (_outstanding_seg.empty()) {
         _timer.stop();
     }
     // update window_size
@@ -107,7 +108,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 void TCPSender::tick(const size_t ms_since_last_tick) {
     _timer.tick(ms_since_last_tick);
     // if expired
-    if (_timer.is_timeout() && !_outstanding_seg.empty()) {
+    if (_timer.is_timeout()) {
         // retransmit
         _segments_out.push(_outstanding_seg.front().second);
         // if windowsize > 0
