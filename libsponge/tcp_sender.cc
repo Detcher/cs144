@@ -45,7 +45,7 @@ void TCPSender::fill_window() {
         // set fin if it should
         // Must stay behind '_stream.read()' because it's possible being in EOF after reading and then setting FIN,
         // if it stays before reading stream, it may miss some FIN setting (See 'Piggyback FIN...' testcase).
-        // Also, must leave some space in the window for FIN flag, avoiding being trimmed; if no space yet, just skip it.
+        // Also, must leave some space in the window for FIN flag, avoiding being trimmed; if no space yet, just skip.
         if (_stream.eof() && !_set_fin && _bytes_in_flight + seg.length_in_sequence_space() < window_size) {
             seg.header().fin = true;
             _set_fin = true;
@@ -59,7 +59,7 @@ void TCPSender::fill_window() {
         if (!_timer.is_running()) {
             _timer.restart();
         }
-        // backup
+        // backup (pair<> has MOVE ctor, so here we can use 'emplace()' other than 'push()')
         _outstanding_seg.emplace(_next_seqno, std::move(seg));
 
         _next_seqno += length;
@@ -129,5 +129,7 @@ void TCPSender::send_empty_segment() {
     // helper function to generate a empty ACK segment
     TCPSegment seg;
     seg.header().seqno = next_seqno();
-    _segments_out.emplace(std::move(seg));
+    // use 'push' instead 'cuz TCPSegment doesn't have MOVE ctor yet
+    // _segments_out.emplace(std::move(seg));
+    _segments_out.push(seg);
 }

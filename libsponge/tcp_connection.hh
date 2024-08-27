@@ -21,6 +21,10 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
+    size_t _time_since_last_seg_rcvd{0};
+
+    bool _is_active{true};
+
   public:
     //! \name "Input" interface for the writer
     //!@{
@@ -38,6 +42,12 @@ class TCPConnection {
     //! \brief Shut down the outbound byte stream (still allows reading incoming data)
     void end_input_stream();
     //!@}
+
+    //! \brief Unclean shutdown
+    void reset(bool send_rst);
+
+    //! \brief Helper function for 'segment_received()'
+    void segment_loaded();
 
     //! \name "Output" interface for the reader
     //!@{
