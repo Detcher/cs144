@@ -22,6 +22,8 @@ size_t TCPConnection::unassembled_bytes() const { return _receiver.unassembled_b
 size_t TCPConnection::time_since_last_segment_received() const { return _time_since_last_seg_rcvd; }
 
 void TCPConnection::segment_received(const TCPSegment &seg) {
+    // for every segments occupying squence-space, we need to return a ack back
+    bool _send_empty_seg = seg.length_in_sequence_space() > 0;
     _time_since_last_seg_rcvd = 0;
     auto &header = seg.header();
     if (header.rst) {
@@ -35,19 +37,18 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (header.ack) {
         _sender.ack_received(header.ackno, header.win);
     }
-    // LISTEN 时收到 SYN，进入 FSM 的 SYN RECEIVED 状态
+    // connect
     if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::SYN_RECV &&
         TCPState::state_summary(_sender) == TCPSenderStateSummary::CLOSED) {
         connect();
         return;
     }
-    // 判断是否为 Passive CLOSE，并进入 FSM 的 CLOSE WAIT 状态
+    // close wait
     if (TCPState::state_summary(_receiver) == TCPReceiverStateSummary::FIN_RECV &&
         TCPState::state_summary(_sender) == TCPSenderStateSummary::SYN_ACKED) {
         _linger_after_streams_finish = false;
     }
-
-    // Passive CLOSE，判断是否进入 FSM 的 CLOSED 状态
+    // Passive CLOSE
     if (!_linger_after_streams_finish && TCPState::state_summary(_receiver) == TCPReceiverStateSummary::FIN_RECV &&
         TCPState::state_summary(_sender) == TCPSenderStateSummary::FIN_ACKED) {
         _is_active = false;
@@ -56,8 +57,12 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     // you! keep-alive segment!
     if (_receiver.ackno().has_value() && (seg.length_in_sequence_space() == 0) &&
         header.seqno == _receiver.ackno().value() - 1) {
-        _sender.send_empty_segment();
+        _send_empty_seg = true;
     }
+    // in certain cases, we need to send ack back 
+    if ((_send_empty_seg && _sender.segments_out().empty()) || _send_empty_seg)
+        _sender.send_empty_segment();
+
     segment_loaded();
 }
 
@@ -111,6 +116,7 @@ void TCPConnection::reset(bool send_rst) {
     }
     _sender.stream_in().set_error();
     _receiver.stream_out().set_error();
+    _linger_after_streams_finish = false;
     _is_active = false;
 }
 
