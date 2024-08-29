@@ -19,7 +19,7 @@ class StreamReassembler {
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
 
-    void checked_insert(std::string data, uint64_t index);
+    void checked_insert(std::string &data, uint64_t index);
 
     std::string truncate_substring(const std::string &data, uint64_t index);
 

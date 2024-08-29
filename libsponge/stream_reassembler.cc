@@ -118,7 +118,7 @@ void StreamReassembler::update_map() {
     }
 }
 
-void StreamReassembler::checked_insert(string data, uint64_t index) {
+void StreamReassembler::checked_insert(string &data, uint64_t index) {
     uint64_t start = index, end = index + data.size() - 1;
     for (auto iter = _unassembled_strs.begin(); iter != _unassembled_strs.end();) {
         const string &str = (*iter).second;
