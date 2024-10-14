@@ -38,7 +38,9 @@ string ByteStream::peek_output(const size_t len) const {
         } else {
             // optimize point #1: no need to use 'buffer.copy'
             auto buffer_view = buffer.str();
-            str.append(string().assign(buffer_view.begin(), buffer_view.begin() + num));
+            // string::append() dont have overload for rvalue-ref, use '+' instead
+            // str += std::move(string().assign(buffer_view.begin(), buffer_view.begin() + num));
+            str.append(buffer_view, 0, num);
             break;
         }
     }
